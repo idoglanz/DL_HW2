@@ -1,13 +1,7 @@
 import numpy as np
 import matplotlib as plt
 
-TempDNN = [{"input": 2, "output": 4, "nonlinear": "relu", "regularization": "l1"},
-           {"input": 4, "output": 5, "nonlinear": "sigmoid", "regularization": "l1"},
-           {"input": 5, "output": 1, "nonlinear": "softmax", "regularization": "l1"}]
-
-Loss = 'MSE'
-weight_decay = 0.1
-
+#------------------------------------------ DNN Class ------------------------------------------
 
 class MyDNN:
 
@@ -38,18 +32,22 @@ class MyDNN:
         for i in range(epochs):
             [x_shuf, y_shuf] = shuffle_data(x_train, ytrain)
             iterations = np.floor(x_train.shape[0]/batch_size)
+
             for k in range(iterations):
                 x_batch = x_shuf[k*batch_size:((k+1)*batch_size-1),:]
                 y_batch = y_shuf[k*batch_size:((k+1)*batch_size-1),:]
                 y_tag = forwardprop(x_batch, y_batch, self.params, self.actv)
                 [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.regularization)
                 backwardprop(self.params, loss[k])
+
             memory['weights_epoch'+str(i)] = self.params()
             loss_train[i] = loss
             accu_train[i] = accu
             y_tag_val = forwardprop(x_val, y_val, self.params, self.actv)
             [loss_val[i], accu_val[i]] = calc_loss(y_val, y_val_tag, self.Loss, self.params, self.regularization)
-            
+
+
+#-------------------------------------- Activation class -----------------------------------------
 
 class Activations:
 
@@ -74,8 +72,10 @@ class Activations:
         return(z)
 
 
+#------------------------------------------ functions ------------------------------------------
 
-def activate(z, func):
+
+def activate(z, func, back = False):
         switcher = {
                   'relu': activ.relu,
                   'sigmoid': activ.sigmoid,
@@ -83,15 +83,10 @@ def activate(z, func):
                   'none': activ.none
         }
         activation_choosen = switcher.get(func,'invalid activation function')
-        return activation_choosen(z)
-
-
-activ = activations()
-
-matansDNN = MyDNN(TempDNN, Loss, weight_decay)
-
-print(matansDNN.actv)
-print(matansDNN.params)
+        if back is False:
+            return activation_choosen(z)
+        else:
+            return activation_choosen(z, True)
 
 
 def shuffle_data(x, y)
@@ -103,12 +98,46 @@ def shuffle_data(x, y)
 
 def frwdprop_layer(x, w, b, activation):
     z = np.dot(x, w)+b
-    return activate(z, activation)
+
+    return activate(z, activation), z
 
 
 def forwardprop(x, y, params, activations):
-    a_curr = x;
-    for layer in length(1, params):
-       a_new = frwdprop_layer(a_curr, params['w'+str(layer)], params['b'+str(layer)], actv['actv'+str(layer)])
-       a_curr = a_new
+    a_curr = x
+    history = {}
 
+    for layer in length(1, params):
+       [a_new, z_new] = frwdprop_layer(a_curr, params['w'+str(layer)], params['b'+str(layer)], actv['actv'+str(layer)])
+       a_curr = a_new
+       history["A" + str(layer)] = a_new
+       history["z" + str(layer-1)] = z_new
+
+    return a_curr, history
+
+
+def backprop_layer(dA_curr, W, b, z_curr, A_prev, activation):
+    m = A_prev.shape[1]
+
+    # to update W we need: dL/dA_curr(=historic) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
+
+    dsigma = dA_curr * activate(z_curr, activation, back)
+    dz_dw = np.dot(dsigma, A_prev.T)/m
+    dz_db = np.dot()
+
+
+#------------------------------------------ Main ------------------------------------------
+
+
+TempDNN = [{"input": 2, "output": 4, "nonlinear": "relu", "regularization": "l1"},
+           {"input": 4, "output": 5, "nonlinear": "sigmoid", "regularization": "l1"},
+           {"input": 5, "output": 1, "nonlinear": "softmax", "regularization": "l1"}]
+
+Loss = 'MSE'
+weight_decay = 0.1
+
+activ = activations()
+
+matansDNN = MyDNN(TempDNN, Loss, weight_decay)
+
+print(matansDNN.actv)
+print(matansDNN.params)
