@@ -51,4 +51,4 @@ TempDNN = [{"input": 2, "output": 4, "nonlinear": "relu", "regularization": "l1"
            {"input": 4, "output": 5, "nonlinear": "sigmoid", "regularization": "l1"},
            {"input": 5, "output": 1, "nonlinear": "softmax", "regularization": "l1"}]
 
-print(TempDNN[1]["regularization"])
+print(TempDNN[1][ "regularization"])
