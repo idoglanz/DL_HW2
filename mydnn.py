@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib as plt
-
+import timeit
 #------------------------------------------ DNN Class ------------------------------------------
 
 class MyDNN:
@@ -29,15 +29,20 @@ class MyDNN:
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, learning_rate_decay=1.0,
                 decay_rate=1, min_lr=0.0, x_val=None, y_val=None, ):
         # [x_norm, y_norm] = normalize(x_train, y_train)   # normalize
+        history = {}
         for i in range(epochs):
             [x_shuf, y_shuf] = shuffle_data(x_train, ytrain)
             iterations = np.floor(x_train.shape[0]/batch_size)
+
+            start = timeit.default_timer()
+
+            # Run training for epoch:
 
             for k in range(iterations):
                 x_batch = x_shuf[k*batch_size:((k+1)*batch_size-1),:]
                 y_batch = y_shuf[k*batch_size:((k+1)*batch_size-1),:]
 
-                [y_tag, history] = forwardprop(x_batch, y_batch, self.params)
+                [y_tag, history] = forwardprop(x_batch, self.params)
 
                 [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.regularization)
 
@@ -46,12 +51,53 @@ class MyDNN:
                 lr = max(learning_rate*learning_rate_decay**(k/decay_rate), min_lr)
                 update_weights(self.params, gradients, lr)
 
-            memory['weights_epoch'+str(i)] = self.params()
-            loss_train[i] = loss
-            accu_train[i] = accu
-            [y_tag_val, history_val] = forwardprop(x_val, y_val, self.params)
-            [loss_val[i], accu_val[i]] = calc_loss(y_val, y_val_tag, self.Loss, self.params, self.regularization)
+            stop = timeit.default_timer()
 
+            # Save all relevant info from epoch:
+
+            if x_val is not None:
+                [y_tag_val, history_val] = forwardprop(x_val, self.params)
+                [loss_val[i], accu_val[i]] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.regularization)
+                history['val_loss' + str(i)] = loss_val[i]
+                history['val_accu' + str(i)] = accu_val[i]
+
+            history['weights_epoch' + str(i)] = self.params()
+            history['loss' + str(i)] = loss
+            history['accu' + str(i)] = accu
+            history['runtime' + str(i)] = stop-start
+
+            # Print status message after every epoch
+
+            print(['Epoch ' + str(i) + '/' + str(epochs) + ' - ' + str(stop-start) + ' Seconds - loss: '
+                   + str(loss_train[i]) + ' - acc: ' + str(accu_train[i]) + ' - val_loss: ' + str(loss) +
+                   ' - val_acc: ' + str(accu)])
+
+        return self.params
+
+
+def predict(self,X, batch_size=None):
+
+    if batch_size is not None:
+        batches = X.size[0] / batch_size
+    else:
+        batches = 1
+
+    for k in range(Batches):
+        pred[k] = forwardprop(x, self.params)
+
+    return pred
+
+def evaulate(self, x, y, batch_size = None):
+
+    if batch_size is not None:
+        batches = X.size[0] / batch_size
+    else:
+        batches = 1
+
+    for k in range(Batches):
+        [loss[k], accu[k]] = calc_loss(x, y, self.Loss, self.params, self.regularization)
+
+    return loss, accu
 
 #-------------------------------------- Activation class -----------------------------------------
 
@@ -115,7 +161,7 @@ def frwdprop_layer(x, w, b, activation):
     return activate(z, activation), z
 
 
-def forwardprop(x, y, params):
+def forwardprop(x, params):
     a_curr = x
     history = {}
 
@@ -176,6 +222,20 @@ def update_weights(params, gradients, lr):
         params["b" + str(index)] -= lr * gradients["db" + str(index)]
 
     return params
+
+
+def calc_loss(X, y, loss_func, params, regularization):
+
+    regularization_value = weights_weight(params, regularization)
+    m = size(y)[0]
+    if loss_func is 'MSE':
+        loss = (1/m)*()
+
+
+
+
+    retrun loss, accu
+
 
 
 #------------------------------------------ Main ------------------------------------------
