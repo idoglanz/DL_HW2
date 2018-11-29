@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib as plt
 import timeit
+
 #------------------------------------------ DNN Class ------------------------------------------
 
 class MyDNN:
@@ -10,8 +11,7 @@ class MyDNN:
         self.Loss = Loss
         self.architecture = architecture
         self.params = {}
-        self.actv = {}
-        self.regularization = architecture[1]["regularization"]
+       # self.regularization = architecture[1]["regularization"]
 
         for idx, layer in enumerate(architecture):
             layer_num = idx + 1
@@ -24,7 +24,7 @@ class MyDNN:
             self.params['W' + str(layer_num)] = np.random.uniform(-n, n, (layer_output_dim, layer_input_dim))
             self.params['b' + str(layer_num)] = np.zeros((layer_input_dim, 1))
             self.params['actv' + str(layer_num)] = layer["nonlinear"]
-
+            self.params['regularization' + str(layer_num)] = layer['regularization']
 
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, learning_rate_decay=1.0,
                 decay_rate=1, min_lr=0.0, x_val=None, y_val=None, ):
@@ -82,20 +82,17 @@ def predict(self,X, batch_size=None):
     else:
         batches = 1
 
-    for k in range(Batches):
+    for k in range(batches):
         pred[k] = forwardprop(x, self.params)
 
     return pred
 
+
 def evaulate(self, x, y, batch_size = None):
 
-    if batch_size is not None:
-        batches = X.size[0] / batch_size
-    else:
-        batches = 1
+    y_bar = predict(X, batch_size)
+    [loss[k], accu[k]] = calc_loss(y, y_bar, self.Loss, self.params)
 
-    for k in range(Batches):
-        [loss[k], accu[k]] = calc_loss(x, y, self.Loss, self.params, self.regularization)
 
     return loss, accu
 
@@ -193,8 +190,10 @@ def backprop(params, loss, y_batch, y_tag, history):
     y = y_batch.reshape(Y_tag.shape)
     if loss == 'CrossEntropy':
         dL_dy = - (np.divide(y_batch, y_tag) - np.divide(1 - y_batch, 1 - y_tag))  # NEEDS TO BE VARIFIED!!
+
     elif loss == 'MSE':
         dL_dy = - (1/m)*np.sum(np.dot(y-y_tag,(y-y_tag).T))
+
     else:
         raise Exception('Loss function not supported')
 
@@ -224,25 +223,78 @@ def update_weights(params, gradients, lr):
     return params
 
 
-def calc_loss(X, y, loss_func, params, regularization):
+def calc_loss(y, y_bar, loss_func, params):
 
-    regularization_value = weights_weight(params, regularization)
+    regularization_value = weights_weight(params)
     m = size(y)[0]
-    if loss_func is 'MSE':
-        loss = (1/m)*()
+
+    if loss_func is 'MSE':    # for regression
+        accu = None
+        loss = -(1/m)*np.dot((y-ybar), (y-y_bar).T) + regularization_value
+
+    elif loss_func is 'cross_entropy':  # for classification
+        loss = 1 / m * (np.dot(y, np.log(y_bar).T) + np.dot(1 - y, np.log(1 - y_bar).T)) + regularization_value
+        prob = np.copy(y_bar)
+        prob[prob > 0.5] = 1
+        prob[prob <= 0.5] = 0
+        accu = (y_bar_ == y).all(axis=0).mean()
+
+    else:
+        loss = None
+        accu = None
+
+    return loss, accu
 
 
+def weights_weight(params):
+    w_total = np.zeros(param['W1'],1)
+
+    for idx, layer in params:
+        if params['regularization' + str(idx)] is 'l1':
+            w_total += np.prod(params['W' + str(idx)], axis=1)
+        elif params['regularization' + str(idx)] is 'l2':
+            w_total += np.prod(np.power(params['W' + str(idx)], 2), axis=1)
+        elif params['regularization' + str(idx)] is 'None':
+            w_total = w_total
+
+    return np.mean(w_total)
 
 
-    retrun loss, accu
+############################################################################################################
+
+def find_mean(data_set):
+    train_mean = np.mean(data_set, axis=0)
+    return train_mean
+
+############################################################################################################
+
+def preprocess(data_set, train_mean):
+    data_set_processed = data_set - train_mean
+    return data_set_processed
+
+############################################################################################################
+
+def class_process(y):
+    y = [(1 if (y[i]%2 == 0) else -1) for i in range(len(y))]
+    y = np.array(y)
+    return y
 
 
 
 #------------------------------------------ Main ------------------------------------------
 
+# Load dataset
 
-TempDNN = [{"input": 2, "output": 4, "nonlinear": "relu", "regularization": "l1"},
-           {"input": 4, "output": 5, "nonlinear": "sigmoid", "regularization": "l1"},
+data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"
+urllib_request.urlretrieve(data_url, "mnist.pkl.gz")
+with gzip.open('mnist.pkl.gz', 'rb') as f:
+    train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
+
+
+
+
+TempDNN = [{"input": 2, "output": 4, "nonlinear": "relu", "regularization": "l2"},
+           {"input": 4, "output": 5, "nonlinear": "sigmoid", "regularization": "l2"},
            {"input": 5, "output": 1, "nonlinear": "softmax", "regularization": "l1"}]
 
 Loss = 'MSE'
@@ -250,7 +302,8 @@ weight_decay = 0.1
 
 activ = Activations()
 
-matansDNN = MyDNN(TempDNN, Loss, weight_decay)
+DNN = MyDNN(TempDNN, Loss, weight_decay)
 
-#print(matansDNN.actv)
-print(matansDNN.params['actv' + str(2)])
+
+#print(DNN.actv)
+print(DNN.params['W' + str(2)])
