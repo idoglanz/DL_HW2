@@ -1,8 +1,14 @@
 import numpy as np
 import matplotlib as plt
 import timeit
+import pickle
+import gzip
+import json
+import urllib.request
+from numpy import linalg as LA
 
-#------------------------------------------ DNN Class ------------------------------------------
+# ------------------------------------------ DNN Class ------------------------------------------
+
 
 class MyDNN:
 
@@ -11,7 +17,6 @@ class MyDNN:
         self.Loss = Loss
         self.architecture = architecture
         self.params = {}
-       # self.regularization = architecture[1]["regularization"]
 
         for idx, layer in enumerate(architecture):
             layer_num = idx + 1
@@ -22,55 +27,59 @@ class MyDNN:
 
             n = 1/np.sqrt(layer_input_dim)
             self.params['W' + str(layer_num)] = np.random.uniform(-n, n, (layer_output_dim, layer_input_dim))
-            self.params['b' + str(layer_num)] = np.zeros((layer_input_dim, 1))
+            self.params['b' + str(layer_num)] = np.zeros((layer_output_dim, 1))
             self.params['actv' + str(layer_num)] = layer["nonlinear"]
             self.params['regularization' + str(layer_num)] = layer['regularization']
 
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, learning_rate_decay=1.0,
-                decay_rate=1, min_lr=0.0, x_val=None, y_val=None, ):
-        # [x_norm, y_norm] = normalize(x_train, y_train)   # normalize
+            decay_rate=1, min_lr=0.0, x_val=None, y_val=None, ):
+
         history = {}
+
         for i in range(epochs):
-            [x_shuf, y_shuf] = shuffle_data(x_train, ytrain)
+
+            # shuffle data on every epoch (shuffling x and y together)
+            [x_shuf, y_shuf] = shuffle_data(x_train, y_train)
+
+            # calc number of iteration (batch size dependent)
             iterations = np.floor(x_train.shape[0]/batch_size)
 
             start = timeit.default_timer()
 
             # Run training for epoch:
 
-            for k in range(iterations):
-                x_batch = x_shuf[k*batch_size:((k+1)*batch_size-1),:]
-                y_batch = y_shuf[k*batch_size:((k+1)*batch_size-1),:]
+            for k in range(int(iterations)):
+                x_batch = x_shuf[k*batch_size:((k+1)*batch_size), :]
+                y_batch = y_shuf[k*batch_size:((k+1)*batch_size)]
+                [y_tag, history] = forwardprop(x_batch, self.params, self.architecture)
 
-                [y_tag, history] = forwardprop(x_batch, self.params)
+                [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.architecture)
+                print(loss.shape, accu)
+            #     gradients = backwardprop(self.params, loss[k], y_batch, y_tag, history)
+            #
+            #     lr = max(learning_rate*learning_rate_decay**(k/decay_rate), min_lr)
+            #     update_weights(self.params, gradients, lr)
+            #
+            # stop = timeit.default_timer()
+            #
+            # # Save all relevant info from epoch:
+            #
+            # if x_val is not None:
+            #     [y_tag_val, history_val] = forwardprop(x_val, self.params)
+            #     [loss_val[i], accu_val[i]] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture)
+            #     history['val_loss' + str(i)] = loss_val[i]
+            #     history['val_accu' + str(i)] = accu_val[i]
+            #
+            # history['weights_epoch' + str(i)] = self.params()
+            # history['loss' + str(i)] = loss
+            # history['accu' + str(i)] = accu
+            # history['runtime' + str(i)] = stop-start
+            #
+            # # Print status message after every epoch
 
-                [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.regularization)
-
-                gradients = backwardprop(self.params, loss[k], y_batch, y_tag, history)
-
-                lr = max(learning_rate*learning_rate_decay**(k/decay_rate), min_lr)
-                update_weights(self.params, gradients, lr)
-
-            stop = timeit.default_timer()
-
-            # Save all relevant info from epoch:
-
-            if x_val is not None:
-                [y_tag_val, history_val] = forwardprop(x_val, self.params)
-                [loss_val[i], accu_val[i]] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.regularization)
-                history['val_loss' + str(i)] = loss_val[i]
-                history['val_accu' + str(i)] = accu_val[i]
-
-            history['weights_epoch' + str(i)] = self.params()
-            history['loss' + str(i)] = loss
-            history['accu' + str(i)] = accu
-            history['runtime' + str(i)] = stop-start
-
-            # Print status message after every epoch
-
-            print(['Epoch ' + str(i) + '/' + str(epochs) + ' - ' + str(stop-start) + ' Seconds - loss: '
-                   + str(loss_train[i]) + ' - acc: ' + str(accu_train[i]) + ' - val_loss: ' + str(loss) +
-                   ' - val_acc: ' + str(accu)])
+            # print(['Epoch ' + str(i) + '/' + str(epochs) + ' - ' + str(stop-start) + ' Seconds - loss: '
+            #        + str(loss_train[i]) + ' - acc: ' + str(accu_train[i]) + ' - val_loss: ' + str(loss) +
+            #        ' - val_acc: ' + str(accu)])
 
         return self.params
 
@@ -88,13 +97,14 @@ def predict(self,X, batch_size=None):
     return pred
 
 
-def evaulate(self, x, y, batch_size = None):
+def evaulate(self, x, y, batch_size=None):
 
     y_bar = predict(X, batch_size)
-    [loss[k], accu[k]] = calc_loss(y, y_bar, self.Loss, self.params)
+    [loss, accu] = calc_loss(y, y_bar, self.Loss, self.params, self.architecture)
 
 
     return loss, accu
+
 
 #-------------------------------------- Activation class -----------------------------------------
 
@@ -119,7 +129,11 @@ class Activations:
             return new_z
 
     def softmax(self, z, back=False):
-        return np.exp(z)/np.sum(np.exp(z))
+        temp = np.exp(z)/np.sum(np.exp(z))
+        if back is False:
+            return temp
+        else:
+            return temp*(1-temp)
 
     def none(self,z, back=False):
         if back is False:
@@ -131,42 +145,42 @@ class Activations:
 #------------------------------------------ functions ------------------------------------------
 
 
-def activate(z, func, back = False):
+def activate(z, func, back=False):
         switcher = {
                   'relu': activ.relu,
                   'sigmoid': activ.sigmoid,
                   'softmax': activ.softmax,
                   'none': activ.none
         }
-        activation_choosen = switcher.get(func,'invalid activation function')
+        activation_chosen = switcher.get(func, 'invalid activation function')
         if back is False:
-            return activation_choosen(z)
+            return activation_chosen(z)
         else:
-            return activation_choosen(z, True)
+            return activation_chosen(z, True)
 
 
 def shuffle_data(x, y):
     m = x.shape[1]
     xy = np.concatenate((x, y), axis=1)
     np.random.shuffle(xy)
-    return xy[:,0:m-1], xy[:,m]
+    return xy[:, :-1], convert_vector_to_matrix(xy[:, m])
 
 
 def frwdprop_layer(x, w, b, activation):
-    z = np.dot(x, w)+b
+    z = np.dot(x, w.T)+b.T
 
     return activate(z, activation), z
 
 
-def forwardprop(x, params):
+def forwardprop(x, params, architecture):
     a_curr = x
     history = {}
 
-    for layer in length(1, params):
-       [a_new, z_new] = frwdprop_layer(a_curr, params['w'+str(layer)], params['b'+str(layer)], params['actv'+str(layer)])
-       a_curr = a_new
-       history["A" + str(layer)] = a_new
-       history["z" + str(layer-1)] = z_new
+    for idx, layer in enumerate(architecture, 1):
+        [a_new, z_new] = frwdprop_layer(a_curr, params['W'+str(idx)], params['b'+str(idx)], params['actv'+str(idx)])
+        a_curr = a_new
+        history["A" + str(idx)] = a_new
+        history["z" + str(idx-1)] = z_new
 
     return a_curr, history
 
@@ -183,6 +197,7 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation):
     dL_dA_prev = np.dot(W.T, dsigma_dz)    # will be needed for previous layer
 
     return dL_dA_prev, dL_dw, dL_db
+
 
 def backprop(params, loss, y_batch, y_tag, history):
     gradients = {}
@@ -223,21 +238,21 @@ def update_weights(params, gradients, lr):
     return params
 
 
-def calc_loss(y, y_bar, loss_func, params):
+def calc_loss(y, y_bar, loss_func, params, architecture):
 
-    regularization_value = weights_weight(params)
-    m = size(y)[0]
+    regularization_value = weights_weight(params, architecture)
+    m = y.shape[0]
 
     if loss_func is 'MSE':    # for regression
         accu = None
-        loss = -(1/m)*np.dot((y-ybar), (y-y_bar).T) + regularization_value
+        loss = -(1/m)*np.dot((y-y_bar), (y-y_bar).T) + regularization_value
 
     elif loss_func is 'cross_entropy':  # for classification
         loss = 1 / m * (np.dot(y, np.log(y_bar).T) + np.dot(1 - y, np.log(1 - y_bar).T)) + regularization_value
         prob = np.copy(y_bar)
         prob[prob > 0.5] = 1
         prob[prob <= 0.5] = 0
-        accu = (y_bar_ == y).all(axis=0).mean()
+        accu = (prob == y).all(axis=0).mean()
 
     else:
         loss = None
@@ -246,21 +261,23 @@ def calc_loss(y, y_bar, loss_func, params):
     return loss, accu
 
 
-def weights_weight(params):
-    w_total = np.zeros(param['W1'],1)
+def weights_weight(params, architecture):
 
-    for idx, layer in params:
+    w_total = 0
+
+    for idx, layer in enumerate(architecture,1):
         if params['regularization' + str(idx)] is 'l1':
-            w_total += np.prod(params['W' + str(idx)], axis=1)
+            w_total += LA.norm(params['W' + str(idx)], 1)
         elif params['regularization' + str(idx)] is 'l2':
-            w_total += np.prod(np.power(params['W' + str(idx)], 2), axis=1)
+            w_total += LA.norm(params['W' + str(idx)], 2)
         elif params['regularization' + str(idx)] is 'None':
             w_total = w_total
 
-    return np.mean(w_total)
+    return w_total
 
 
 ############################################################################################################
+
 
 def find_mean(data_set):
     train_mean = np.mean(data_set, axis=0)
@@ -268,42 +285,61 @@ def find_mean(data_set):
 
 ############################################################################################################
 
+
 def preprocess(data_set, train_mean):
     data_set_processed = data_set - train_mean
     return data_set_processed
 
 ############################################################################################################
 
+
 def class_process(y):
     y = [(1 if (y[i]%2 == 0) else -1) for i in range(len(y))]
     y = np.array(y)
     return y
 
+############################################################################################################
 
 
-#------------------------------------------ Main ------------------------------------------
+def convert_vector_to_matrix(y):
+    y = y[:, np.newaxis]
+    return y
 
-# Load dataset
+# ------------------------------------------ Main ------------------------------------------
 
-data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"
-urllib_request.urlretrieve(data_url, "mnist.pkl.gz")
+# Load data-set and preprocess (normalize)
+
+# data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"
+# urllib.request.urlretrieve(data_url, "mnist.pkl.gz")
 with gzip.open('mnist.pkl.gz', 'rb') as f:
     train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
 
+train_mean = find_mean(train_set[0])
+X_ = preprocess(train_set[0], train_mean)
+X_val = preprocess(valid_set[0], train_mean)
+X_test = preprocess(test_set[0], train_mean)
+y_ = convert_vector_to_matrix(class_process(train_set[1]))
+y_val = convert_vector_to_matrix(class_process(valid_set[1]))
+y_test = convert_vector_to_matrix(class_process(test_set[1]))
 
 
+# construct network architecture
 
-TempDNN = [{"input": 2, "output": 4, "nonlinear": "relu", "regularization": "l2"},
-           {"input": 4, "output": 5, "nonlinear": "sigmoid", "regularization": "l2"},
-           {"input": 5, "output": 1, "nonlinear": "softmax", "regularization": "l1"}]
+TempDNN = [{"input": 784, "output": 1000, "nonlinear": "relu", "regularization": "l2"},
+           {"input": 1000, "output": 1000, "nonlinear": "sigmoid", "regularization": "l2"},
+           {"input": 1000, "output": 1, "nonlinear": "softmax", "regularization": "l1"}]
 
 Loss = 'MSE'
 weight_decay = 0.1
+
+# init DNN and activations
 
 activ = Activations()
 
 DNN = MyDNN(TempDNN, Loss, weight_decay)
 
+# print(DNN.params['W' + str(1)].shape)
+# print(DNN.params['b' + str(1)].shape)
+weights = DNN.fit(X_, y_, 1, 1000, 0.4, 1, 1, 0, X_val, y_val)
 
-#print(DNN.actv)
-print(DNN.params['W' + str(2)])
+
