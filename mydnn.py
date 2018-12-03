@@ -1,5 +1,6 @@
 import numpy as np
-import matplotlib as plt
+# import matplotlib as plt
+import matplotlib.pyplot as plt
 import timeit
 import pickle, gzip, json, urllib.request
 # from numpy import linalg as LA
@@ -69,6 +70,7 @@ class MyDNN:
                 [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture, self.weight_decay)
                 history['val_loss' + str(i)] = loss_val
                 history['val_accu' + str(i)] = accu_val
+                print_output(np.argmax(y_val, axis=1), np.argmax(y_tag_val, axis=1), i)
 
             history['weights_epoch' + str(i)] = self.params
             history['loss' + str(i)] = loss
@@ -317,6 +319,22 @@ def weights_weight(params, architecture):
             w_total = w_total
 
     return w_total
+
+
+def print_output(y, ybar, epoch):
+    plt.clf()
+    x_axis = np.linspace(1, y.shape[0], y.shape[0])
+    window = [1, 500]
+
+    plt.plot(x_axis[window[0]:window[1]], y[window[0]:window[1]], 'ro')
+    plt.plot(x_axis[window[0]:window[1]], ybar[window[0]:window[1]], 'b+')
+    plt.ylabel("Class")
+    plt.xlabel("Sample")
+    plt.title(["y vs y_bar, epoch: " + str(epoch)])
+    plt.legend(["Y true", "Y bar"])
+    plt.ion()
+    plt.pause(0.1)
+    plt.show()
 
 
 ############################################################################################################
