@@ -56,19 +56,9 @@ class MyDNN:
                 gradients = backprop(self.params, self.Loss, y_batch, y_tag, history, self.architecture, self.weight_decay)
 
                 lr = max(learning_rate*learning_rate_decay**(k/decay_rate), min_lr)
-                # print('Epoch, k & lr:')
-                # print(i, k, lr)
-                # print('ytag')
-                # print(y_tag)
-                # print('Old params:')
-                # print(self.params['W2'])
-                # print('gradients')
-                # print(gradients['dW1'])
 
                 self.params = update_weights(self.params, gradients, lr, self.architecture)
 
-                # print('new params:')
-                # print(self.params['W2'])
 
             stop = timeit.default_timer()
 
@@ -141,16 +131,20 @@ class Activations:
 
             return new_z
 
-    def softmax(self, z, back=False):
+    def softmax(self, z, back=False):   # stable version
 
         exps = np.exp(z - np.max(z, axis=1, keepdims=True))
         temp = exps / np.sum(exps, axis =1, keepdims=True)
 
-        # temp = np.exp(z) / (np.exp(z).sum(axis=1, keepdims=True))
         if back is False:
             return temp
         else:
-            return temp*(np.eye(z.shape[0], z.shape[1])-temp)
+            z_grad = np.zeros((z.shape[1], z.shape[1]))
+            for k in range(z.shape[0]):
+                s = temp[k, :].reshape(-1, 1)
+                z_grad += np.diagflat(s) - np.dot(s, s.T)
+            return (1/z.shape[0])*z_grad
+            # return temp*(np.eye(z.shape[0], z.shape[1])-temp)
 
     def none(self,z, back=False):
         if back is False:
@@ -212,7 +206,17 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation):
     # to update W we need: dL/dA_curr(=dA_curr) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
     # to update b we need: dL/dA_curr(=dA_curr) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
 
-    dL_dz = dA_curr * activate(z_curr, activation, True)
+    # z[N, class_out]
+    # dL_dz = dA_curr[N,classes_out] dot dsigma_dz[class_out, class_out]
+    # dL_dw[classes_out, classes_in] = dL_dz.T[classes_out,N] dot A_prev[N,classes_in]
+
+    if activation is 'softmax':
+        # dL_dz = np.dot(dA_curr, activate(z_curr, activation, True))
+        dL_dz = dA_curr
+
+    else:
+        dL_dz = dA_curr * activate(z_curr, activation, True)
+
     dL_dw = (1/m)*np.dot(dL_dz.T, A_prev)
     dL_db = np.sum(dL_dz, axis=0, keepdims=True) / m
     dL_dA_prev = np.dot(dL_dz, W)    # will be needed for previous layer
@@ -223,10 +227,7 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation):
 def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
     gradients = {}
     m = y_batch.shape[0]
-
     if loss == 'cross_entropy':
-
-          # dL_dy = - 1/m * (y_batch * np.divide(1, y_tag))
 
           dL_dy = y_tag
           dL_dy[range(m), y_batch.argmax(axis=1)] -= 1
@@ -249,9 +250,8 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
 
         [dA_prev, dw, db] = backprop_layer(dA_curr, params['W'+str(curr_layer)], z_curr, A_prev, params['actv' + str(curr_layer)])
 
-        gradients['dW' + str(curr_layer)] = dw + weight_decay * layer_weight(params['W'+str(curr_layer)], params['regularization' + str(curr_layer)])
-        # print(['dW layer ' + str(curr_layer)])
-        # print(dw)
+        gradients['dW' + str(curr_layer)] = dw  #+ weight_decay * layer_weight(params['W'+str(curr_layer)], params['regularization' + str(curr_layer)])
+
         gradients['db' + str(curr_layer)] = db
 
     return gradients
@@ -278,10 +278,13 @@ def calc_loss(y, y_bar, loss_func, params, architecture, weight_decay):
     elif loss_func is 'cross_entropy':  # for classification
 
         loss = -(1 / m) * np.trace(np.dot(y, np.log(y_bar).T))  # + weight_decay * regularization_value
-        prob = np.zeros((y_bar.shape[0], y_bar.shape[1]))
-        prob[:, np.argmax(y_bar, axis=1)] = 1
 
-        accu = 1/y.shape[0] * np.sum(y*prob)
+        guess = np.zeros((y_bar.shape[0], 1))
+        # print('next:')
+        # print(np.argmax(y_bar, axis=1))
+        # print(np.argmax(y, axis=1))
+        guess[np.argmax(y_bar, axis=1) == np.argmax(y, axis=1)] = 1
+        accu = np.sum(guess)/m
 
     else:
         loss = None
@@ -376,9 +379,9 @@ y_test = class_process_mnist(test_set[1], 10)
 
 # construct network architecture
 
-TempDNN = [{"input": 784, "output": 800, "nonlinear": "sigmoid", "regularization": "l1"},
-           {"input": 800, "output": 300, "nonlinear": "relu", "regularization": "l1"},
-           {"input": 300, "output": 10, "nonlinear": "softmax", "regularization": "l1"}]
+TempDNN = [{"input": 784, "output": 800, "nonlinear": "relu", "regularization": "l2"},
+           {"input": 800, "output": 300, "nonlinear": "sigmoid", "regularization": "l2"},
+           {"input": 300, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
 
 Loss = 'cross_entropy'
 weight_decay = 0.01
@@ -390,6 +393,6 @@ activ = Activations()
 DNN = MyDNN(TempDNN, Loss, weight_decay)
 
 
-[weights, history1] = DNN.fit(X_, y_, epochs=10, batch_size=5000, learning_rate=0.5, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+[weights, history1] = DNN.fit(X_, y_, epochs=15, batch_size=1000, learning_rate=1000, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
 
 
