@@ -85,27 +85,33 @@ class MyDNN:
 
         return self.params, history
 
+    def predict(self, x, y, batch_size=None):
 
-def predict(self, X, batch_size=None):
+        pred_shape = y.shape
 
-    if batch_size is not None:
-        batches = X.size[0] / batch_size
-    else:
-        batches = 1
+        if batch_size is not None:
 
-    for k in range(batches):
-        pred[k] = forwardprop(x, self.params)
+            batch_num = np.floor(pred_shape[0] / batch_size)
 
-    return pred
+            y_bar = np.zeros((pred_shape[0], pred_shape[1]))
 
+            for iter in range(batch_num):
 
-def evaulate(self, X, y, batch_size=None):
+                x_batch = x[iter * batch_size:(iter+1) * batch_size, :]
 
-    y_bar = predict(X, batch_size)
-    [loss, accu] = calc_loss(y, y_bar, self.Loss, self.params, self.architecture)
+                [y_bar[iter * batch_size:(iter+1) * batch_size, :], history] = forwardprop(x_batch, self.params, self.architecture)
 
+        else:
+            # y_bar = np.zeros((pred_shape[0], pred_shape[1]))
+            [y_bar, history] = forwardprop(x, self.params, self.architecture)
 
-    return loss, accu
+        return y_bar
+
+    def evaluate(self, x, y, batch_size=None):
+
+        y_bar = DNN.predict(x, y, batch_size)
+        [loss, accu] = calc_loss(y, y_bar, self.Loss, self.params, self.architecture, weight_decay=0)
+        return loss, accu, y_bar
 
 
 # -------------------------------------- Activation class -----------------------------------------
@@ -148,7 +154,7 @@ class Activations:
             return (1/z.shape[0])*z_grad
             # return temp*(np.eye(z.shape[0], z.shape[1])-temp)
 
-    def none(self,z, back=False):
+    def none(self, z, back=False):
         if back is False:
             return z
         else:
@@ -321,7 +327,7 @@ def weights_weight(params, architecture):
     return w_total
 
 
-def print_output(y, ybar, epoch):
+def print_output(y, ybar, epoch, blck=False):
     plt.clf()
     x_axis = np.linspace(1, y.shape[0], y.shape[0])
     window = [1, 500]
@@ -330,11 +336,14 @@ def print_output(y, ybar, epoch):
     plt.plot(x_axis[window[0]:window[1]], ybar[window[0]:window[1]], 'b+')
     plt.ylabel("Class")
     plt.xlabel("Sample")
-    plt.title(["y vs y_bar, epoch: " + str(epoch)])
+    if blck is not False:
+        plt.title(["y vs y_bar, Test Set"])
+    else:
+        plt.title(["y vs y_bar, epoch: " + str(epoch)])
     plt.legend(["Y true", "Y bar"])
     plt.ion()
     plt.pause(0.1)
-    plt.show()
+    plt.show(block=blck)
 
 
 ############################################################################################################
@@ -411,6 +420,11 @@ activ = Activations()
 DNN = MyDNN(TempDNN, Loss, weight_decay)
 
 
-[weights, history1] = DNN.fit(X_, y_, epochs=15, batch_size=1000, learning_rate=1000, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+[trained_params, history1] = DNN.fit(X_, y_, epochs=2, batch_size=1000, learning_rate=1000, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
 
+[loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
+
+print(loss, accu)
+
+print_output(np.argmax(y_test, axis=1), np.argmax(y_bar, axis=1), 0, blck=True)
 
