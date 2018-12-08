@@ -57,7 +57,7 @@ class MyDNN:
 
                 [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.architecture, self.weight_decay)
 
-                loss_vec.append(loss)
+                loss_vec.append(float(loss))
                 accu_vec.append(accu)
 
                 gradients = backprop(self.params, self.Loss, y_batch, y_tag, history, self.architecture, self.weight_decay)
@@ -71,12 +71,12 @@ class MyDNN:
                     [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture,
                                                      self.weight_decay)
 
-                    loss_vec_val.append(loss_val)
+                    loss_vec_val.append(float(loss_val))
                     accu_vec_val.append(accu_val)
 
             stop = timeit.default_timer()
 
-            # Save all relevant info from epoch:
+            #  test validation set and save all relevant info from epoch:
 
             if x_val is not None:
                 [y_tag_val, history_val] = forwardprop(x_val, self.params, self.architecture)
@@ -239,9 +239,20 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation, last=False):
             dL_dz = dA_curr
         else:              # cases where softmax is used not on last layer
             dL_dz = np.dot(dA_curr, activate(z_curr, activation, True))
-
     else:
         dL_dz = dA_curr * activate(z_curr, activation, True)
+        # # if W.shape[0] == 1:
+        # #     dA_curr = convert_vector_to_matrix(dA_curr)
+        #
+        # # dA_curr = np.reshape(dA_curr, -1, W.shape[0])
+        #
+        # print('dA and W')
+        # print(dA_curr.shape, W.shape[0])
+        #
+        # print('activation output:')
+        # print(activate(z_curr, activation, True).shape)
+        #
+        # print(dL_dz.shape, W.shape)
 
     dL_dw = (1/m)*np.dot(dL_dz.T, A_prev)
     dL_db = np.sum(dL_dz, axis=0, keepdims=True) / m
@@ -261,8 +272,10 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
           # dL_dy = dL_dy / m
 
     elif loss == 'MSE':
-        dL_dy = - (1/m)*np.sum(y-y_tag, axis=1)
-
+        dL_dy = - (1/m)*np.sum(y_batch - y_tag, axis=1)
+        dL_dy = convert_vector_to_matrix(dL_dy)
+        # print('error dim:')
+        # print(dL_dy.shape)
     else:
         raise Exception('Loss function not supported')
 
@@ -300,7 +313,7 @@ def calc_loss(y, y_bar, loss_func, params, architecture, weight_decay):
 
     if loss_func is 'MSE':    # for regression
         accu = None
-        loss = -(1/m)*np.dot((y-y_bar).T, (y-y_bar)) + regularization_value
+        loss = -(1/m) * np.dot((y-y_bar).T, (y-y_bar)) + regularization_value
 
     elif loss_func is 'cross_entropy':  # for classification
 
@@ -367,20 +380,23 @@ def print_result(loss, accu, loss_val, accu_val, batch_size):
     x_axis = np.linspace(1, len(loss), len(loss))
 
     ls = plt.figure(2)
-    plt.plot(x_axis, loss, 'r', x_axis, loss_val, 'b')
+    plt.plot(x_axis, loss, 'r')
+    plt.plot(x_axis, loss_val, 'b')
+    plt.legend(["Train set", "Validation set"])
     plt.ylabel("Loss")
     plt.xlabel("Iterations")
     plt.title(["Loss VS iterations - batch size = " + str(batch_size)])
-    plt.legend(["Train set", "Validation set"])
     ls.show()
 
-    ac = plt.figure(3)
-    plt.plot(x_axis, accu, 'r', x_axis, accu_val, 'b')
-    plt.ylabel("Accuracy")
-    plt.xlabel("Iterations")
-    plt.title(["Accuracy VS iterations - batch size = " + str(batch_size)])
-    plt.legend(["Train set", "Validation set"])
-    ac.show()
+    if accu_val is not None:
+        ac = plt.figure(3)
+        plt.plot(x_axis, accu, 'r')
+        plt.plot(x_axis, accu_val, 'b')
+        plt.legend(["Train set", "Validation set"])
+        plt.ylabel("Accuracy")
+        plt.xlabel("Iterations")
+        plt.title(["Accuracy VS iterations - batch size = " + str(batch_size)])
+        ac.show()
 
     plt.ion()
     plt.pause(0.1)

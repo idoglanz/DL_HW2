@@ -45,7 +45,7 @@ DNN = MyDNN(DNN_q1, Loss, weight_decay)
 
 batch_size = 1000
 
-[trained_params, history] = DNN.fit(X_, y_, epochs=10, batch_size=batch_size, learning_rate=0.1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+[trained_params, history] = DNN.fit(X_, y_, epochs=10, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
 
 
 # -------------------------------  Print loss and accuracy curves -----------------------------------
