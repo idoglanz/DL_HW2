@@ -142,7 +142,7 @@ class Activations:
     def softmax(self, z, back=False):   # stable version
 
         exps = np.exp(z - np.max(z, axis=1, keepdims=True))
-        temp = exps / np.sum(exps, axis =1, keepdims=True)
+        temp = exps / np.sum(exps, axis=1, keepdims=True)
 
         if back is False:
             return temp
@@ -207,20 +207,18 @@ def forwardprop(x, params, architecture):
     return a_curr, history_local
 
 
-def backprop_layer(dA_curr, W, z_curr, A_prev, activation):
+def backprop_layer(dA_curr, W, z_curr, A_prev, activation, last=False):
 
     m = dA_curr.shape[0]
 
     # to update W we need: dL/dA_curr(=dA_curr) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
     # to update b we need: dL/dA_curr(=dA_curr) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
 
-    # z[N, class_out]
-    # dL_dz = dA_curr[N,classes_out] dot dsigma_dz[class_out, class_out]
-    # dL_dw[classes_out, classes_in] = dL_dz.T[classes_out,N] dot A_prev[N,classes_in]
-
     if activation is 'softmax':
-        # dL_dz = np.dot(dA_curr, activate(z_curr, activation, True))
-        dL_dz = dA_curr
+        if last is True:   # in the case last layer is softmax (hence it follows cross entropy)
+            dL_dz = dA_curr
+        else:              # cases where softmax is used not on last layer
+            dL_dz = np.dot(dA_curr, activate(z_curr, activation, True))
 
     else:
         dL_dz = dA_curr * activate(z_curr, activation, True)
@@ -235,11 +233,12 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation):
 def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
     gradients = {}
     m = y_batch.shape[0]
-    if loss == 'cross_entropy':
+
+    if loss == 'cross_entropy':  # also combining the softmax derv (reducing calc time)
 
           dL_dy = y_tag
           dL_dy[range(m), y_batch.argmax(axis=1)] -= 1
-          dL_dy = dL_dy / m
+          # dL_dy = dL_dy / m
 
     elif loss == 'MSE':
         dL_dy = - (1/m)*np.sum(y-y_tag, axis=1)
@@ -248,7 +247,7 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
         raise Exception('Loss function not supported')
 
     dA_prev = dL_dy  # gradient of previous state (in last layer = y)
-
+    last_flag = True
     for prev_idx, layer in reversed(list(enumerate(architecture))):
         curr_layer = prev_idx + 1
         dA_curr = dA_prev
@@ -256,12 +255,12 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
         A_prev = history["A" + str(prev_idx)]
         z_curr = history["z" + str(curr_layer)]
 
-        [dA_prev, dw, db] = backprop_layer(dA_curr, params['W'+str(curr_layer)], z_curr, A_prev, params['actv' + str(curr_layer)])
+        [dA_prev, dw, db] = backprop_layer(dA_curr, params['W'+str(curr_layer)], z_curr, A_prev, params['actv' + str(curr_layer)], last_flag)
 
-        gradients['dW' + str(curr_layer)] = dw  #+ weight_decay * layer_weight(params['W'+str(curr_layer)], params['regularization' + str(curr_layer)])
+        gradients['dW' + str(curr_layer)] = dw + (weight_decay/m) * layer_weight(params['W'+str(curr_layer)], params['regularization' + str(curr_layer)])
 
         gradients['db' + str(curr_layer)] = db
-
+        last_flag = False
     return gradients
 
 
@@ -276,16 +275,16 @@ def update_weights(params, gradients, lr, architecture):
 
 def calc_loss(y, y_bar, loss_func, params, architecture, weight_decay):
 
-    regularization_value = weights_weight(params, architecture)
     m = y.shape[0]
+    regularization_value = (weight_decay/m) * weights_weight(params, architecture)
 
     if loss_func is 'MSE':    # for regression
         accu = None
-        loss = -(1/m)*np.dot((y-y_bar).T, (y-y_bar)) + weight_decay*regularization_value
+        loss = -(1/m)*np.dot((y-y_bar).T, (y-y_bar)) + regularization_value
 
     elif loss_func is 'cross_entropy':  # for classification
 
-        loss = -(1 / m) * np.trace(np.dot(y, np.log(y_bar).T))  # + weight_decay * regularization_value
+        loss = -(1 / m) * np.trace(np.dot(y, np.log(y_bar).T)) + regularization_value
 
         guess = np.zeros((y_bar.shape[0], 1))
         # print('next:')
@@ -407,11 +406,11 @@ y_test = class_process_mnist(test_set[1], 10)
 # construct network architecture
 
 TempDNN = [{"input": 784, "output": 800, "nonlinear": "relu", "regularization": "l2"},
-           {"input": 800, "output": 300, "nonlinear": "sigmoid", "regularization": "l2"},
+           {"input": 800, "output": 300, "nonlinear": "relu", "regularization": "l2"},
            {"input": 300, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
 
 Loss = 'cross_entropy'
-weight_decay = 0.01
+weight_decay = 0.001
 
 # init DNN and activations
 
@@ -420,7 +419,7 @@ activ = Activations()
 DNN = MyDNN(TempDNN, Loss, weight_decay)
 
 
-[trained_params, history1] = DNN.fit(X_, y_, epochs=2, batch_size=1000, learning_rate=1000, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+[trained_params, history1] = DNN.fit(X_, y_, epochs=5, batch_size=1000, learning_rate=0.1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
 
 [loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
 
