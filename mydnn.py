@@ -1,9 +1,7 @@
 import numpy as np
-# import matplotlib as plt
 import matplotlib.pyplot as plt
 import timeit
 import pickle, gzip, json, urllib.request
-# from numpy import linalg as LA
 
 # ------------------------------------------ DNN Class ------------------------------------------
 
@@ -33,6 +31,11 @@ class MyDNN:
 
         history = {}
 
+        loss_vec = []
+        loss_vec_val = []
+        accu_vec = []
+        accu_vec_val = []
+
         for i in range(epochs):
 
             # shuffle data on every epoch (shuffling x and y together)
@@ -54,12 +57,22 @@ class MyDNN:
 
                 [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.architecture, self.weight_decay)
 
+                loss_vec.append(loss)
+                accu_vec.append(accu)
+
                 gradients = backprop(self.params, self.Loss, y_batch, y_tag, history, self.architecture, self.weight_decay)
 
                 lr = max(learning_rate*learning_rate_decay**(k/decay_rate), min_lr)
 
                 self.params = update_weights(self.params, gradients, lr, self.architecture)
 
+                if x_val is not None:
+                    [y_tag_val, history_val] = forwardprop(x_val, self.params, self.architecture)
+                    [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture,
+                                                     self.weight_decay)
+
+                    loss_vec_val.append(loss_val)
+                    accu_vec_val.append(accu_val)
 
             stop = timeit.default_timer()
 
@@ -70,7 +83,7 @@ class MyDNN:
                 [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture, self.weight_decay)
                 history['val_loss' + str(i)] = loss_val
                 history['val_accu' + str(i)] = accu_val
-                print_output(np.argmax(y_val, axis=1), np.argmax(y_tag_val, axis=1), i)
+                # print_output(np.argmax(y_val, axis=1), np.argmax(y_tag_val, axis=1), i)
 
             history['weights_epoch' + str(i)] = self.params
             history['loss' + str(i)] = loss
@@ -82,6 +95,13 @@ class MyDNN:
             print(['Epoch ' + str(i+1) + '/' + str(epochs) + ' - ' + str(stop-start) + ' Seconds - loss: '
                    + str(loss) + ' - acc: ' + str(accu) + ' - val_loss: ' + str(loss_val) +
                    ' - val_acc: ' + str(accu_val)])
+
+        # save loss and accuracies vs iterations
+
+        history['losses'] = loss_vec
+        history['accu'] = accu_vec
+        history['losses_val'] = loss_vec_val
+        history['accu_val'] = accu_vec_val
 
         return self.params, history
 
@@ -109,7 +129,7 @@ class MyDNN:
 
     def evaluate(self, x, y, batch_size=None):
 
-        y_bar = DNN.predict(x, y, batch_size)
+        y_bar = self.predict(x, y, batch_size)
         [loss, accu] = calc_loss(y, y_bar, self.Loss, self.params, self.architecture, weight_decay=0)
         return loss, accu, y_bar
 
@@ -287,9 +307,6 @@ def calc_loss(y, y_bar, loss_func, params, architecture, weight_decay):
         loss = -(1 / m) * np.trace(np.dot(y, np.log(y_bar).T)) + regularization_value
 
         guess = np.zeros((y_bar.shape[0], 1))
-        # print('next:')
-        # print(np.argmax(y_bar, axis=1))
-        # print(np.argmax(y, axis=1))
         guess[np.argmax(y_bar, axis=1) == np.argmax(y, axis=1)] = 1
         accu = np.sum(guess)/m
 
@@ -345,6 +362,29 @@ def print_output(y, ybar, epoch, blck=False):
     plt.show(block=blck)
 
 
+def print_result(loss, accu, loss_val, accu_val, batch_size):
+
+    x_axis = np.linspace(1, len(loss), len(loss))
+
+    ls = plt.figure(2)
+    plt.plot(x_axis, loss, 'r', x_axis, loss_val, 'b')
+    plt.ylabel("Loss")
+    plt.xlabel("Iterations")
+    plt.title(["Loss VS iterations - batch size = " + str(batch_size)])
+    plt.legend(["Train set", "Validation set"])
+    ls.show()
+
+    ac = plt.figure(3)
+    plt.plot(x_axis, accu, 'r', x_axis, accu_val, 'b')
+    plt.ylabel("Accuracy")
+    plt.xlabel("Iterations")
+    plt.title(["Accuracy VS iterations - batch size = " + str(batch_size)])
+    plt.legend(["Train set", "Validation set"])
+    ac.show()
+
+    plt.ion()
+    plt.pause(0.1)
+    plt.show(block=True)
 ############################################################################################################
 
 
@@ -360,13 +400,6 @@ def preprocess(data_set, train_mean):
     return data_set_processed
 
 ############################################################################################################
-
-
-def class_process_old(y):
-    y = [(1 if (y[i]%2 == 0) else 0) for i in range(len(y))]
-    y = np.array(y)
-    return y
-
 
 def class_process_mnist(y, classes):
 
@@ -384,46 +417,49 @@ def convert_vector_to_matrix(y):
     y = y[:, np.newaxis]
     return y
 
-# ------------------------------------------ Main ------------------------------------------
-
-# Load data-set and preprocess (normalize)
-
-# data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"
-# urllib.request.urlretrieve(data_url, "mnist.pkl.gz")
-with gzip.open('mnist.pkl.gz', 'rb') as f:
-    train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
-
-train_mean = find_mean(train_set[0])
-
-X_ = preprocess(train_set[0], train_mean)
-X_val = preprocess(valid_set[0], train_mean)
-X_test = preprocess(test_set[0], train_mean)
-
-y_ = class_process_mnist(train_set[1], 10)
-y_val = class_process_mnist(valid_set[1], 10)
-y_test = class_process_mnist(test_set[1], 10)
-
-# construct network architecture
-
-TempDNN = [{"input": 784, "output": 800, "nonlinear": "relu", "regularization": "l2"},
-           {"input": 800, "output": 300, "nonlinear": "relu", "regularization": "l2"},
-           {"input": 300, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
-
-Loss = 'cross_entropy'
-weight_decay = 0.001
-
-# init DNN and activations
 
 activ = Activations()
 
-DNN = MyDNN(TempDNN, Loss, weight_decay)
+# ------------------------------------------ Main ------------------------------------------
 
-
-[trained_params, history1] = DNN.fit(X_, y_, epochs=5, batch_size=1000, learning_rate=0.1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
-
-[loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
-
-print(loss, accu)
-
-print_output(np.argmax(y_test, axis=1), np.argmax(y_bar, axis=1), 0, blck=True)
+# # Load data-set and preprocess (normalize)
+#
+# # data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"
+# # urllib.request.urlretrieve(data_url, "mnist.pkl.gz")
+# with gzip.open('mnist.pkl.gz', 'rb') as f:
+#     train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
+#
+# train_mean = find_mean(train_set[0])
+#
+# X_ = preprocess(train_set[0], train_mean)
+# X_val = preprocess(valid_set[0], train_mean)
+# X_test = preprocess(test_set[0], train_mean)
+#
+# y_ = class_process_mnist(train_set[1], 10)
+# y_val = class_process_mnist(valid_set[1], 10)
+# y_test = class_process_mnist(test_set[1], 10)
+#
+# # construct network architecture
+#
+# TempDNN = [{"input": 784, "output": 800, "nonlinear": "relu", "regularization": "l2"},
+#            {"input": 800, "output": 300, "nonlinear": "relu", "regularization": "l2"},
+#            {"input": 300, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
+#
+# Loss = 'cross_entropy'
+# weight_decay = 0.001
+#
+# # init DNN and activations
+#
+# activ = Activations()
+#
+# DNN = MyDNN(TempDNN, Loss, weight_decay)
+#
+#
+# [trained_params, history1] = DNN.fit(X_, y_, epochs=5, batch_size=1000, learning_rate=0.1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+#
+# [loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
+#
+# print(loss, accu)
+#
+# print_output(np.argmax(y_test, axis=1), np.argmax(y_bar, axis=1), 0, blck=True)
 
