@@ -235,24 +235,12 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation, last=False):
     # to update b we need: dL/dA_curr(=dA_curr) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
 
     if activation is 'softmax':
-        if last is True:   # in the case last layer is softmax (hence it follows cross entropy)
+        if last is True:   # in the case last layer is softmax (hence it is followed by cross entropy)
             dL_dz = dA_curr
         else:              # cases where softmax is used not on last layer
             dL_dz = np.dot(dA_curr, activate(z_curr, activation, True))
     else:
         dL_dz = dA_curr * activate(z_curr, activation, True)
-        # # if W.shape[0] == 1:
-        # #     dA_curr = convert_vector_to_matrix(dA_curr)
-        #
-        # # dA_curr = np.reshape(dA_curr, -1, W.shape[0])
-        #
-        # print('dA and W')
-        # print(dA_curr.shape, W.shape[0])
-        #
-        # print('activation output:')
-        # print(activate(z_curr, activation, True).shape)
-        #
-        # print(dL_dz.shape, W.shape)
 
     dL_dw = (1/m)*np.dot(dL_dz.T, A_prev)
     dL_db = np.sum(dL_dz, axis=0, keepdims=True) / m
@@ -272,7 +260,7 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
           # dL_dy = dL_dy / m
 
     elif loss == 'MSE':
-        dL_dy = - (1/m)*np.sum(y_batch - y_tag, axis=1)
+        dL_dy = - np.sum(y_batch - y_tag, axis=1)
         dL_dy = convert_vector_to_matrix(dL_dy)
         # print('error dim:')
         # print(dL_dy.shape)
