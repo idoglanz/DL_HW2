@@ -31,7 +31,7 @@ DNN_q1 = [{"input": 784, "output": 128, "nonlinear": "relu", "regularization": "
 
 Loss = 'cross_entropy'
 
-weight_decay = 0.001
+weight_decay = 0.0
 
 # ---------------------------------------- Init DNN -------------------------------------------------
 
@@ -43,7 +43,7 @@ DNN = MyDNN(DNN_q1, Loss, weight_decay)
 
 # -----------------------------------------  Train --------------------------------------------------
 
-batch_size = 1000
+batch_size = 1024
 
 [trained_params, history] = DNN.fit(X_, y_, epochs=10, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
 
@@ -51,15 +51,15 @@ batch_size = 1000
 # -------------------------------  Print loss and accuracy curves -----------------------------------
 
 
-print_result(history['losses'], history['accu'], history['losses_val'], history['accu_val'], batch_size)
+print_result(loss=history['losses'], accu=history['accus'], loss_val=history['losses_val'], accu_val=history['accus_val'], batch_size=batch_size)
 
 
 # -----------------------------------  Evaluate Test set --------------------------------------------
 
 
-# [loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
-#
-# print(loss, accu)
+[loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
+
+print(loss, accu)
 #
 # print_output(np.argmax(y_test, axis=1), np.argmax(y_bar, axis=1), 0, blck=True)
 

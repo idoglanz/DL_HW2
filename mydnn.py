@@ -29,7 +29,7 @@ class MyDNN:
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, learning_rate_decay=1.0,
             decay_rate=1, min_lr=0.0, x_val=None, y_val=None, ):
 
-        history = {}
+        # history = {}
 
         loss_vec = []
         loss_vec_val = []
@@ -39,7 +39,8 @@ class MyDNN:
         for i in range(epochs):
 
             # shuffle data on every epoch (shuffling x and y together)
-            [x_shuf, y_shuf] = shuffle_data(x_train, y_train)
+            # [x_shuf, y_shuf] = shuffle_data(x_train, y_train)
+            [x_shuf, y_shuf] = [x_train, y_train]
 
             # calc number of iteration (batch size dependent)
             iterations = np.floor(x_train.shape[0]/batch_size)
@@ -53,30 +54,31 @@ class MyDNN:
                 x_batch = x_shuf[k*batch_size:((k+1)*batch_size), :]
                 y_batch = y_shuf[k*batch_size:((k+1)*batch_size), :]
 
-                [y_tag, history] = forwardprop(x_batch, self.params, self.architecture)
+                [y_bar_batch, history] = forwardprop(x_batch, self.params, self.architecture)
 
-                [loss, accu] = calc_loss(y_batch, y_tag, self.Loss, self.params, self.architecture, self.weight_decay)
+                [loss, accu] = calc_loss(y_batch, y_bar_batch, self.Loss, self.params, self.architecture, self.weight_decay)
 
                 loss_vec.append(float(loss))
                 accu_vec.append(accu)
 
-                gradients = backprop(self.params, self.Loss, y_batch, y_tag, history, self.architecture, self.weight_decay)
+                if x_val is not None:
+
+                    [y_tag_val, history_val] = forwardprop(x_val, self.params, self.architecture)
+                    [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture,
+                                                     self.weight_decay)
+                    loss_vec_val.append(float(loss_val))
+                    accu_vec_val.append(accu_val)
+
+                gradients = backprop(self.params, self.Loss, y_batch, y_bar_batch, history, self.architecture, self.weight_decay)
 
                 lr = max(learning_rate*learning_rate_decay**(k/decay_rate), min_lr)
 
                 self.params = update_weights(self.params, gradients, lr, self.architecture)
 
-                if x_val is not None:
-                    [y_tag_val, history_val] = forwardprop(x_val, self.params, self.architecture)
-                    [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture,
-                                                     self.weight_decay)
-
-                    loss_vec_val.append(float(loss_val))
-                    accu_vec_val.append(accu_val)
-
             stop = timeit.default_timer()
 
             #  test validation set and save all relevant info from epoch:
+            # print_output(np.argmax(y_batch, axis=1), np.argmax(y_tag, axis=1), i)
 
             if x_val is not None:
                 [y_tag_val, history_val] = forwardprop(x_val, self.params, self.architecture)
@@ -99,9 +101,9 @@ class MyDNN:
         # save loss and accuracies vs iterations
 
         history['losses'] = loss_vec
-        history['accu'] = accu_vec
+        history['accus'] = accu_vec
         history['losses_val'] = loss_vec_val
-        history['accu_val'] = accu_vec_val
+        history['accus_val'] = accu_vec_val
 
         return self.params, history
 
@@ -253,17 +255,15 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
     gradients = {}
     m = y_batch.shape[0]
 
-    if loss == 'cross_entropy':  # also combining the softmax derv (reducing calc time)
+    if loss == 'cross_entropy':  # also combining the softmax grad (reducing calc time)
 
           dL_dy = y_tag
           dL_dy[range(m), y_batch.argmax(axis=1)] -= 1
-          # dL_dy = dL_dy / m
 
     elif loss == 'MSE':
         dL_dy = - np.sum(y_batch - y_tag, axis=1)
         dL_dy = convert_vector_to_matrix(dL_dy)
-        # print('error dim:')
-        # print(dL_dy.shape)
+
     else:
         raise Exception('Loss function not supported')
 
@@ -282,11 +282,11 @@ def backprop(params, loss, y_batch, y_tag, history, architecture, weight_decay):
 
         gradients['db' + str(curr_layer)] = db
         last_flag = False
+
     return gradients
 
 
 def update_weights(params, gradients, lr, architecture):
-    # print('weights updated')
     for index, layer in enumerate(architecture, 1):
         params['W' + str(index)] -= lr * gradients["dW" + str(index)]
         params['b' + str(index)] -= lr * gradients["db" + str(index)]
@@ -301,10 +301,9 @@ def calc_loss(y, y_bar, loss_func, params, architecture, weight_decay):
 
     if loss_func is 'MSE':    # for regression
         accu = None
-        loss = -(1/m) * np.dot((y-y_bar).T, (y-y_bar)) + regularization_value
+        loss = -(1 / m) * np.dot((y-y_bar).T, (y-y_bar)) + regularization_value
 
     elif loss_func is 'cross_entropy':  # for classification
-
         loss = -(1 / m) * np.trace(np.dot(y, np.log(y_bar).T)) + regularization_value
 
         guess = np.zeros((y_bar.shape[0], 1))
@@ -389,6 +388,7 @@ def print_result(loss, accu, loss_val, accu_val, batch_size):
     plt.ion()
     plt.pause(0.1)
     plt.show(block=True)
+
 ############################################################################################################
 
 
