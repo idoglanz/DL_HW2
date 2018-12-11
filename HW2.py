@@ -26,12 +26,12 @@ y_test = class_process_mnist(test_set[1], 10)
 
 # -------------------------------- Define network architecture --------------------------------------
 
-DNN_q1 = [{"input": 784, "output": 128, "nonlinear": "relu", "regularization": "l2"},
-          {"input": 128, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
+DNN_q1 = [{"input": 784, "output": 128, "nonlinear": "relu", "regularization": "l1"},
+          {"input": 128, "output": 10, "nonlinear": "softmax", "regularization": "l1"}]
 
 Loss = 'cross_entropy'
 
-weight_decay = 0.0
+weight_decay =  5*10**-5
 
 # ---------------------------------------- Init DNN -------------------------------------------------
 
@@ -45,7 +45,7 @@ DNN = MyDNN(DNN_q1, Loss, weight_decay)
 
 batch_size = 1024
 
-[trained_params, history] = DNN.fit(X_, y_, epochs=10, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+[trained_params, history] = DNN.fit(X_, y_, epochs=20, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
 
 
 # -------------------------------  Print loss and accuracy curves -----------------------------------

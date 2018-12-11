@@ -128,11 +128,18 @@ def activate(z, func, back=False):
 # # print(train_set[1][3040])
 # #
 
-X = np.array([[1, 2, 3], [10, 3, 4], [1, 2, 3], [1, 2, 3]])
-y = np.array([[1], [2], [3], [4]])
+# X = np.array([[1, 2, 3], [10, 3, 4], [1, 2, 3], [1, 2, 3]])
+# y = np.array([[1], [2], [3], [4]])
+#
+#
+# activ = Activations()
+# print(X)
+# print(activate(X, 'sigmoid'))
 
+temp = np.linspace(-2, 2, 1000)
 
-activ = Activations()
-print(X)
-print(activate(X, 'sigmoid'))
+[xx, yy] = np.meshgrid(temp, temp) #.reshape(2,-1).T
 
+xy = np.concatenate((xx.reshape(-1, 1), yy.reshape(-1, 1)), axis=1)
+print(xy)
+print(xy.shape)
