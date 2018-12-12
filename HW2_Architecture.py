@@ -6,6 +6,10 @@ from mydnn import MyDNN
 from mydnn import Activations
 from mydnn import *
 
+
+# THIS IS THE SCRIPT USED FOR THE ARCHITECTURE TESTING - THE PARAMETERS WERE ALTERED TO MATCH THE DIFFERENT TESTS
+
+
 # -------------------------------- Load MNIST and preprocess (normalize) ---------------------------------------
 
 # data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"
@@ -26,8 +30,12 @@ y_test = class_process_mnist(test_set[1], 10)
 
 # -------------------------------- Define network architecture --------------------------------------
 
-DNN_q1 = [{"input": 784, "output": 128, "nonlinear": "relu", "regularization": "none"},
-          {"input": 128, "output": 10, "nonlinear": "softmax", "regularization": "none"}]
+DNN_q1 = [{"input": 784, "output": 512, "nonlinear": "relu", "regularization": "l2"},
+          {"input": 512, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
+
+# DNN_q1 = [{"input": 784, "output": 512, "nonlinear": "relu", "regularization": "l2"},
+#           {"input": 512, "output": 80, "nonlinear": "sigmoid", "regularization": "l2"},
+#           {"input": 80, "output": 10, "nonlinear": "softmax", "regularization": "l2"}]
 
 Loss = 'cross_entropy'
 
@@ -45,13 +53,16 @@ DNN = MyDNN(DNN_q1, Loss, weight_decay)
 
 batch_size = 1024
 
-[trained_params, history] = DNN.fit(X_, y_, epochs=20, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=X_val, y_val=y_val)
+start = timeit.default_timer()
 
+[trained_params, history] = DNN.fit(X_, y_, epochs=20, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=None, y_val=None)
+
+stop = timeit.default_timer()
 
 # -------------------------------  Print loss and accuracy curves -----------------------------------
 
 
-print_result(loss=history['losses'], accu=history['accus'], loss_val=history['losses_val'], accu_val=history['accus_val'], batch_size=batch_size)
+# print_result(loss=history['losses'], accu=history['accus'], loss_val=None, accu_val=None, batch_size=batch_size)
 
 
 # -----------------------------------  Evaluate Test set --------------------------------------------
@@ -59,7 +70,7 @@ print_result(loss=history['losses'], accu=history['accus'], loss_val=history['lo
 
 [loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
 
-print(loss, accu)
-#
+print(["Runtime = " + str(stop-start) + ', loss = ' + str(loss) + ', accuracy = ' + str(accu)])
+
 # print_output(np.argmax(y_test, axis=1), np.argmax(y_bar, axis=1), 0, blck=True)
 
