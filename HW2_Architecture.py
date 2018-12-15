@@ -43,11 +43,7 @@ weight_decay =  5*10**-5
 
 # ---------------------------------------- Init DNN -------------------------------------------------
 
-
-# activ = Activations()
-
 DNN = MyDNN(DNN_q1, Loss, weight_decay)
-
 
 # -----------------------------------------  Train --------------------------------------------------
 
@@ -55,22 +51,15 @@ batch_size = 1024
 
 start = timeit.default_timer()
 
-[trained_params, history] = DNN.fit(X_, y_, epochs=20, batch_size=batch_size, learning_rate=1, learning_rate_decay=1, decay_rate=1, min_lr=0.0, x_val=None, y_val=None)
+[trained_params, history] = DNN.fit(X_, y_, epochs=20, batch_size=batch_size, learning_rate=1, learning_rate_decay=1,
+                                    decay_rate=1, min_lr=0.0, x_val=None, y_val=None)
 
 stop = timeit.default_timer()
-
-# -------------------------------  Print loss and accuracy curves -----------------------------------
-
-
-# print_result(loss=history['losses'], accu=history['accus'], loss_val=None, accu_val=None, batch_size=batch_size)
-
 
 # -----------------------------------  Evaluate Test set --------------------------------------------
 
 
 [loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
 
-print(["Runtime = " + str(stop-start) + ', loss = ' + str(loss) + ', accuracy = ' + str(accu)])
-
-# print_output(np.argmax(y_test, axis=1), np.argmax(y_bar, axis=1), 0, blck=True)
+print(["Runtime = " + str(stop-start) + ', Test set loss = ' + str(loss) + ', Test set accuracy = ' + str(accu)])
 

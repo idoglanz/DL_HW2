@@ -6,6 +6,8 @@ from mydnn import MyDNN
 from mydnn import Activations
 from mydnn import *
 
+# THIS IS THE SCRIPT FOR TESTING THE REGULARIZATION EFFECTS AND THE WEIGHT DECAY VALUE OPTIMIZATION
+
 # -------------------------------- Load MNIST and preprocess (normalize) ---------------------------------------
 
 # data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"

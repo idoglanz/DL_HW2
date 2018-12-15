@@ -8,12 +8,14 @@ from mydnn import *
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits import mplot3d
 
+# SCRIPT FOR THE REGRESSION PART OF THE HW (LAST PART)
+
 # -------------------------------- Generate synthetic data set  ---------------------------------------
 
 # f(x) = x1 * exp(-x1^2 -x2^2)
 
 
-m = 1000
+m = 1000   # OR 100
 
 X_ = np.array([np.random.uniform(-2, 2, m), np.random.uniform(-2, 2, m)]).T
 
@@ -51,16 +53,14 @@ loss = []
 weight_decay_vector = [5*10**-7, 5*10**-6, 1*10**-5, 5*10**-5, 1*10**-4, 5*10**-4, 1*10**-3, 5*10**-3, 1*10**-2, 5*10**-2]
 
 
-# for k in range(len(weight_decay_vector)):
+# for k in range(len(weight_decay_vector)):   # COMMENT THIS IN TO RUN OPTIMIZATION
 for k in range(1):
 
     weight_decay = weight_decay_vector[k]
 
     # ---------------------------------------- Init DNN -------------------------------------------------
 
-
     DNN = MyDNN(DNN_reg, Loss, weight_decay)
-
 
     # -----------------------------------------  Train --------------------------------------------------
 
@@ -68,42 +68,26 @@ for k in range(1):
 
     [trained_params, history] = DNN.fit(X_, y_, epochs=200, batch_size=batch_size, learning_rate=0.1, learning_rate_decay=1, decay_rate=1, min_lr=0.01, x_val=X_val, y_val=y_val)
 
-
     # -------------------------------  Print loss curve -----------------------------------
 
     print_result(history['losses'], None, history['losses_val'], None, batch_size)
 
-
     # # -----------------------------------  Evaluate Test set --------------------------------------------
-
-
-    # [loss, accu, y_bar] = DNN.evaluate(X_test, y_test, None)
 
     [loss_temp, accu_temp, y_bar] = DNN.evaluate(X_test, y_test, None)
     loss.append(float(loss_temp))
 
     print(["Weight decay = " + str(weight_decay_vector[k]) + ', loss = ' + str(loss_temp) + ', accuracy = ' + str(accu_temp)])
 
-# fig1 = plt.figure(1)
-# print(loss, len(loss), len(weight_decay_vector))
-# plt.plot(weight_decay_vector, loss, 'ob')
+# fig = plt.figure(3)
 #
-# plt.ylabel('Loss')
-# plt.xlabel('Weight decay value')
-# plt.title(['Loss VS weight decay'])
-# plt.grid()
-# fig1.show()
-
-
-fig = plt.figure(3)
-
-ax = plt.axes(projection='3d')
-ax.plot_surface(xx, yy, y_test.reshape(-1, 100), rstride=1, cstride=1, edgecolor='none')
-ax.plot_surface(xx, yy, y_bar.reshape(-1, 100), rstride=1, cstride=1, edgecolor='none')
-
-ax.set_title('Function Surface Plot')
-
-plt.show()
-plt.ion()
-plt.pause(0.1)
-plt.show(block=True)
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(xx, yy, y_test.reshape(-1, 100), rstride=1, cstride=1, edgecolor='none')
+# ax.plot_surface(xx, yy, y_bar.reshape(-1, 100), rstride=1, cstride=1, edgecolor='none')
+#
+# ax.set_title('Function Surface Plot')
+#
+# plt.show()
+# plt.ion()
+# plt.pause(0.1)
+# plt.show(block=True)

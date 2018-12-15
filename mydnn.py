@@ -39,8 +39,7 @@ class MyDNN:
         for i in range(epochs):
 
             # shuffle data on every epoch (shuffling x and y together)
-            # [x_shuf, y_shuf] = shuffle_data(x_train, y_train)
-            [x_shuf, y_shuf] = [x_train, y_train]
+            [x_shuf, y_shuf] = shuffle_data(x_train, y_train)
 
             # calc number of iteration (batch size dependent)
             iterations = np.floor(x_train.shape[0]/batch_size)
@@ -77,15 +76,13 @@ class MyDNN:
 
             stop = timeit.default_timer()
 
-            #  test validation set and save all relevant info from epoch:
-            # print_output(np.argmax(y_batch, axis=1), np.argmax(y_tag, axis=1), i)
-
             if x_val is not None:
                 [y_tag_val, history_val] = forwardprop(x_val, self.params, self.architecture)
                 [loss_val, accu_val] = calc_loss(y_val, y_tag_val, self.Loss, self.params, self.architecture, self.weight_decay)
                 history['val_loss' + str(i)] = loss_val
                 history['val_accu' + str(i)] = accu_val
                 # print_output(np.argmax(y_val, axis=1), np.argmax(y_tag_val, axis=1), i)
+                print_live(y_val, y_tag_val, i)
             else:
                 loss_val = None
                 accu_val = None
@@ -240,9 +237,9 @@ def backprop_layer(dA_curr, W, z_curr, A_prev, activation, last=False):
     # to update b we need: dL/dA_curr(=dA_curr) * dA_curr/dsigma(=dA_curr) * dsigma/dz(=activation') * dz/dw(=A_prev)
 
     if activation is 'softmax':
-        if last is True:   # in the case last layer is softmax (hence it is followed by cross entropy)
+        if last is True:            # in the case last layer is softmax (hence it is followed by cross entropy)
             dL_dz = dA_curr
-        else:              # cases where softmax is used not on last layer
+        else:                       # cases where softmax is used not on last layer
             dL_dz = np.dot(dA_curr, activate(z_curr, activation, True))
     else:
         dL_dz = dA_curr * activate(z_curr, activation, True)
@@ -320,7 +317,7 @@ def calc_loss(y, y_bar, loss_func, params, architecture, weight_decay):
     return loss, accu
 
 
-def layer_weight(w, regularization):
+def layer_weight(w, regularization):         # weight of a specific layer of weights (w's)
     if regularization is 'l1':
         return np.sign(w)
     elif regularization is 'l2':
@@ -329,8 +326,7 @@ def layer_weight(w, regularization):
         return w
 
 
-def weights_weight(params, architecture):
-
+def weights_weight(params, architecture):    # weight of all parameters for regularization
     w_total = 0
 
     for idx, layer in enumerate(architecture, 1):
@@ -394,6 +390,25 @@ def print_result(loss, accu, loss_val, accu_val, batch_size):
     plt.pause(0.1)
     plt.show(block=True)
 
+
+def print_live(y, y_bar, epoch):
+    plt.clf()
+
+    x_axis = np.linspace(1, len(y), len(y))
+
+    ls = plt.figure(1)
+    plt.plot(x_axis, y, 'r')
+    plt.plot(x_axis, y_bar, 'b')
+    plt.legend(["Y", "Y_bar"])
+    plt.ylabel("count")
+    plt.xlabel("sample")
+    plt.title(["Count - validation set, epoch: " + str(epoch)])
+    ls.show()
+
+    plt.ion()
+    plt.pause(0.1)
+    plt.show(block=False)
+
 ###################################### OTHER USEFUL FUNCTIONS ##############################################
 
 
@@ -401,14 +416,15 @@ def find_mean(data_set):
     train_mean = np.mean(data_set, axis=0)
     return train_mean
 
-############################################################################################################
+# ----------------------------------------------------------------------------------------------------------
+
 
 
 def preprocess(data_set, train_mean):
     data_set_processed = data_set - train_mean
     return data_set_processed
 
-############################################################################################################
+# ----------------------------------------------------------------------------------------------------------
 
 def class_process_mnist(y, classes):
 
@@ -419,7 +435,7 @@ def class_process_mnist(y, classes):
 
     return y_new
 
-############################################################################################################
+# ----------------------------------------------------------------------------------------------------------
 
 
 def convert_vector_to_matrix(y):
